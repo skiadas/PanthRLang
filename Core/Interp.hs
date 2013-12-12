@@ -37,48 +37,48 @@ eval s = case parseExpr s of
     Right v -> interp v
 
 interp :: Expr -> Value
-interp e = getValue $ runState (interp e) emptyState
+interp e = getValue $ runState (interpS e) emptyState
 
-interp :: Expr -> IntrState Value
-interp (IntE  i) = return (IntV  i)
-interp (DblE  d) = return (DblV  d)
-interp (BoolE b) = return (BoolV b)
-interp (StrE  s) = return (StrV  s)
-interp (VectorE lst) = fmap VectorV $ sequenceStates (map interp lst)
-interp (ArithmE op e1 e2) = do {
-    v1 <- interp e1;
-    v2 <- interp e2;
+interpS :: Expr -> IntrState Value
+interpS (IntE  i) = return (IntV  i)
+interpS (DblE  d) = return (DblV  d)
+interpS (BoolE b) = return (BoolV b)
+interpS (StrE  s) = return (StrV  s)
+interpS (VectorE lst) = fmap VectorV $ sequenceStates (map interpS lst)
+interpS (ArithmE op e1 e2) = do {
+    v1 <- interpS e1;
+    v2 <- interpS e2;
     return $ applyArithmOp op v1 v2;
 }
-interp (LogicalE OpAnd e1 e2) = do {
-        v1 <- interp e1;
+interpS (LogicalE OpAnd e1 e2) = do {
+        v1 <- interpS e1;
         if (valToBool v1)
-        then interp e2  -- Should be doing ensureBool here?
+        then interpS e2  -- Should be doing ensureBool here?
         else return v1;
 }
-interp (LogicalE OpOr e1 e2) = do {
-        v1 <- interp e1;
+interpS (LogicalE OpOr e1 e2) = do {
+        v1 <- interpS e1;
         if valToBool v1
         then return v1
-        else interp e2;
+        else interpS e2;
 }
-interp (NegateE e) = (fmap negateV) (interp e)
-interp (NotE e) = (fmap notV) (interp e)
-interp (IfE e_if e_then e_else) = do {
-    v <- interp e_if;
-    interp $ if (valToBool v) then e_then else e_else;
+interpS (NegateE e) = (fmap negateV) (interpS e)
+interpS (NotE e) = (fmap notV) (interpS e)
+interpS (IfE e_if e_then e_else) = do {
+    v <- interpS e_if;
+    interpS $ if (valToBool v) then e_then else e_else;
 }
-interp (VarE s) = fmap ((unMaybe ("Unbound identifier: " ++ show s)) . (`locate` s)) getEnv
-interp (FunE e) = fmap (`ClosV` e) getEnv
-interp (CallE e1 e2) = do {
-    v1 <- interp e1;
+interpS (VarE s) = fmap ((unMaybe ("Unbound identifier: " ++ show s)) . (`locate` s)) getEnv
+interpS (FunE e) = fmap (`ClosV` e) getEnv
+interpS (CallE e1 e2) = do {
+    v1 <- interpS e1;
     case v1 of 
         (ClosV env1 (LambdaE s body)) ->  do {
-            v2 <- interp e2;
-            runWithTempEnv (extend env1 s v2) (interp body)
+            v2 <- interpS e2;
+            runWithTempEnv (extend env1 s v2) (interpS body)
         }
         (ClosV _ (BuiltInE f)) -> do {
-            v2 <- interp e2;
+            v2 <- interpS e2;
             return (f v2);
         }
         _ -> error "Attempting to call non-function"
