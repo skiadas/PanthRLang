@@ -7,65 +7,82 @@ import Env
 import Store
 import Parse(parseExpr)
 import BuiltIns(builtInEnv)
+import MyState
 
-interp :: Expr -> Env Value -> Store Value -> (Value, Store Value)
-interp (IntE i) _ st  = (IntV  i, st)
-interp (DblE d) _ st  = (DblV  d, st)
-interp (BoolE b) _ st = (BoolV b, st)
-interp (StrE s) _ st  = (StrV  s, st)
-interp (VectorE lst) env st = (VectorV lstV, st2)
-                where (lstV, st2) = listEval (lst, st)
-                      listEval ([], st) = ([], st)
-                      listEval (e:rest, st) = let (v, st1) = interp e env st
-                                                  (restv, stend) = listEval (rest, st1)
-                                              in  (v:restv, stend)
-interp (ArithmE op e1 e2) env st = (applyArithmOp op v1 v2, st2)
-                where (v1, st1) = interp e1 env st
-                      (v2, st2) = interp e2 env st1
-interp (CompareE op e1 e2) env st = (applyCompOp op v1 v2, st2)
-                where (v1, st1) = interp e1 env st
-                      (v2, st2) = interp e2 env st1
-interp (LogicalE OpAnd e1 e2) env st =
-        let (v1, st1) = interp e1 env st
-        in if valToBool v1
-           then let (v2, st2) = interp e2 env st1
-                in (ensureBool v2, st2)
-           else (v1, st1)
-interp (LogicalE OpOr e1 e2) env st = 
-        let (v1, st1) = interp e1 env st
-        in if valToBool v1
-           then (v1, st1)
-           else let (v2, st2) = interp e2 env st1
-                in (ensureBool v2, st2)
-interp (NegateE e) env st = (retV, st1)
-                    where (v1, st1) = interp e env st
-                          retV = case v1 of
-                              IntV i -> IntV (-i)
-                              DblV d -> DblV (-d)
-                              _ -> error "'negate' used on non-number"
-interp (NotE e) env st = (retV, st1)
-                    where (v1, st1) = interp e env st
-                          retV = case v1 of
-                              BoolV b -> BoolV (not b)
-                              _ -> error "'not' used on non-boolean"
-interp (IfE e_if e_then e_else) env st =
-        let (v1, st1) = interp e_if env st
-            which_e = if (valToBool v1) then e_then else e_else
-        in interp which_e env st1
-interp (VarE s) env st = case locate env s of
-            Just v -> (v, st)
-            Nothing -> error ("Unbound identifier: " ++ show s)
-interp (FunE e) env st = (ClosV env e, st)
-interp (CallE e1 e2) env st = 
-    let (v1, st1) = interp e1 env st
-    in case v1 of
-        (ClosV env1 (LambdaE s body)) ->
-            let (v2, st2) = interp e2 env st1
-            in interp body (extend env s v2) st2
-        (ClosV _ (BuiltInE f)) ->
-            let (v2, st2) = interp e2 env st1
-            in (f v2, st2)
+data IntrSt = IntrSt { env :: Env Value, st :: Store Value }
+type IntrState = MyState IntrSt
+
+-- Replace emptyEnv with builtInEnv or find way to enter that in
+emptyState = IntrSt emptyEnv emptyStore
+
+getValue :: (a, b) -> a
+getValue (a, b) = a
+
+getEnv :: IntrState (Env Value)
+getEnv = MyState $ \st -> (env st, st)
+
+-- Given an environment and a "state action", returns a
+-- "state action" that performs the previous state using
+-- the provided environment temporarily.
+-- Essentially, implements the lexical scope mechanic
+runWithTempEnv :: (Env Value) -> IntrState a -> IntrState a
+runWithTempEnv env b = MyState $ (\st ->
+    let (IntrSt envOrig store) = st
+        (v, IntrSt _ store1) = runState b $ (IntrSt env store)
+    in (v, IntrSt envOrig store1))
+
+eval :: String -> Value
+eval s = case parseExpr s of
+    Left e -> error ("Error during parsing: " ++ show e)
+    Right v -> interp v
+
+interp :: Expr -> Value
+interp e = getValue $ runState (interp e) emptyState
+
+interp :: Expr -> IntrState Value
+interp (IntE  i) = return (IntV  i)
+interp (DblE  d) = return (DblV  d)
+interp (BoolE b) = return (BoolV b)
+interp (StrE  s) = return (StrV  s)
+interp (VectorE lst) = fmap VectorV $ sequenceStates (map interp lst)
+interp (ArithmE op e1 e2) = do {
+    v1 <- interp e1;
+    v2 <- interp e2;
+    return $ applyArithmOp op v1 v2;
+}
+interp (LogicalE OpAnd e1 e2) = do {
+        v1 <- interp e1;
+        if (valToBool v1)
+        then interp e2  -- Should be doing ensureBool here?
+        else return v1;
+}
+interp (LogicalE OpOr e1 e2) = do {
+        v1 <- interp e1;
+        if valToBool v1
+        then return v1
+        else interp e2;
+}
+interp (NegateE e) = (fmap negateV) (interp e)
+interp (NotE e) = (fmap notV) (interp e)
+interp (IfE e_if e_then e_else) = do {
+    v <- interp e_if;
+    interp $ if (valToBool v) then e_then else e_else;
+}
+interp (VarE s) = fmap ((unMaybe ("Unbound identifier: " ++ show s)) . (`locate` s)) getEnv
+interp (FunE e) = fmap (`ClosV` e) getEnv
+interp (CallE e1 e2) = do {
+    v1 <- interp e1;
+    case v1 of 
+        (ClosV env1 (LambdaE s body)) ->  do {
+            v2 <- interp e2;
+            runWithTempEnv (extend env1 s v2) (interp body)
+        }
+        (ClosV _ (BuiltInE f)) -> do {
+            v2 <- interp e2;
+            return (f v2);
+        }
         _ -> error "Attempting to call non-function"
+}
 
 
 applyArithmOp op v1 v2 =
@@ -75,18 +92,19 @@ applyArithmOp op v1 v2 =
             (_, (DblV i1, DblV i2)) -> DblV ((dblFunFromArithmOp op) i1 i2)
             _ -> error "Attempting to perform arithmetic on non-numbers"
 
-applyCompOp op v1 v2 =
-    case uniformizeNums(v1, v2) of
-            (IntV i1, IntV i2) -> BoolV (applyOp op i1 i2)
-            (DblV i1, DblV i2) -> BoolV (applyOp op i1 i2)
-            _ -> error "Attempting to perform inequalities on non-numbers"
-
 uniformizeNums(IntV i, DblV j) = (DblV (fromInteger i), DblV j)
 uniformizeNums(DblV i, IntV j) = (DblV i, DblV (fromInteger j))
 uniformizeNums v = v
 
-eval :: String -> Value
-eval s = case parseExpr s of
-    Left e -> error ("Error during parsing: " ++ show e)
-    Right v -> v1 where (v1, st) = interp v builtInEnv emptyStore
+negateV :: Value -> Value
+negateV (IntV i) = IntV (-i)
+negateV (DblV d) = DblV (-d)
+negateV        _ = error "'negate' used on non-number";
 
+notV :: Value -> Value
+notV (BoolV b) = BoolV (not b)
+notV         _ = error "'not' used on non-boolean"
+
+unMaybe :: String -> Maybe a -> a
+unMaybe s (Just v) = v
+unMaybe s Nothing = error s
