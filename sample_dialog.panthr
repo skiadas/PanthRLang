@@ -1,0 +1,14 @@
+-- Anything following two dashes till the end of the line is a comment.
+
+component QuantStats where
+
+   -- Indentation indicates subscope. So everything indented here is part of
+   -- the QuantStats "component"
+   
+   -- Components are meant to be used as "constructors" for creating new pieces
+   -- of interface or whatnot
+   -- Each component definition should:
+   --    Have a way to "create a new component" via some sort of initialize method
+   --    A way to compute 
+   --    A way to describe how to visually layout a component using specific primitives
+   
