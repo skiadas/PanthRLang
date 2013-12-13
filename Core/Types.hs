@@ -18,6 +18,8 @@ data Expr = IntE Integer | DblE Double | BoolE Bool | StrE String
           | FunE Function
           | VarE Symbol
           | CallE Expr Expr
+          | RecE [(Symbol, Expr)] -- Records. Order does not matter. Doubling as tuples
+          | FieldE Expr Symbol    -- Record field access.
           deriving (Show)
 
 -- Binary operators
@@ -33,6 +35,7 @@ instance Show Function where
 data Value = IntV Integer | DblV Double | BoolV Bool | StrV String
            | VectorV [Value]
            | ClosV (Env Value) Function
+           | RecV [(Symbol, Value)]
            deriving (Show)
 
 arithmOps = [(OpPlus, "+", (+)),
@@ -85,3 +88,12 @@ applyOp OpNeq     = (/=)
 makeLambda :: [String] -> Expr -> Expr
 makeLambda [] body = body
 makeLambda (s:rest) body = FunE $ LambdaE (toSymbol s) (makeLambda rest body)
+
+makeField :: Expr -> String -> Expr
+makeField obj s = FieldE obj (toSymbol s)
+
+makeRecord :: [(String, Expr)] -> Expr
+makeRecord = RecE . map (\(s,v) -> (toSymbol s, v)) 
+
+makeTuple :: [Expr] -> Expr
+makeTuple lst = RecE $ zip (map show [1..(length lst)]) lst

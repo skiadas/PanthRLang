@@ -45,6 +45,16 @@ interpS (DblE  d) = return (DblV  d)
 interpS (BoolE b) = return (BoolV b)
 interpS (StrE  s) = return (StrV  s)
 interpS (VectorE lst) = fmap VectorV $ sequenceStates (map interpS lst)
+interpS (RecE lst) = fmap RecV $ fmap (\(s,t) -> zip s t)
+                               $ fmap ((,) (map toSymbol ids))
+                                      (sequenceStates $ map interpS exps)
+                                                where (ids, exps) = unzip lst
+interpS (FieldE e s) = do { -- Should be able to make this shorter
+    v <- (interpS e);
+    case v of
+        (RecV obj) -> return $ unMaybe ("Field not in record: " ++ show s) (locate obj s);
+        _ -> fail "Attempting to access field of non-record.";
+}
 interpS (ArithmE op e1 e2) = do {
     v1 <- interpS e1;
     v2 <- interpS e2;
