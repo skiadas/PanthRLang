@@ -21,15 +21,19 @@ getValue (a, b) = a
 getEnv :: IntrState (Env Value)
 getEnv = MyState $ \st -> (env st, st)
 
+setEnv :: Env Value -> IntrState ()
+setEnv env = MyState $ \(IntrSt _ store) -> ((), IntrSt env store)
+
 -- Given an environment and a "state action", returns a
 -- "state action" that performs the previous state using
 -- the provided environment temporarily.
 -- Essentially, implements the lexical scope mechanic
-runWithTempEnv :: (Env Value) -> IntrState a -> IntrState a
-runWithTempEnv env b = MyState $ (\st ->
-    let (IntrSt envOrig store) = st
-        (v, IntrSt _ store1) = runState b $ (IntrSt env store)
-    in (v, IntrSt envOrig store1))
+runWithTempEnv :: Env Value -> IntrState a -> IntrState a
+runWithTempEnv env b = do {
+    envOrig <- getEnv;
+    setEnv env; v <- b; setEnv envOrig;
+    return v;
+}
 
 eval :: String -> Value
 eval s = case parseExpr s of
