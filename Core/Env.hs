@@ -1,7 +1,8 @@
 -- module implementing functions related to environment lookups
 
-module Env (Env, Symbol, toSymbol, emptyEnv, locate, extend, extendList) where
-    
+module Env (Env, Symbol, toSymbol, emptyEnv, locate, extend, extendList, uniqueSymbols) where
+
+import qualified Data.List(nub)
 type Symbol = String
 
 toSymbol :: String -> Symbol
@@ -21,3 +22,6 @@ extend env s v = (s,v):env
 
 extendList :: Env a -> [(Symbol, a)] -> Env a
 extendList = flip (++)
+
+uniqueSymbols :: [Symbol] -> Bool
+uniqueSymbols lst = lst == Data.List.nub lst

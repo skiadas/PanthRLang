@@ -91,7 +91,7 @@ makeField :: Expr -> String -> Expr
 makeField obj s = FieldE obj (toSymbol s)
 
 makeRecord :: [(String, Expr)] -> Expr
-makeRecord = RecE . map (\(s,v) -> (toSymbol s, v)) 
+makeRecord = RecE . validateFieldNames . map (\(s,v) -> (toSymbol s, v)) 
 
 makeTuple :: [Expr] -> Expr
 makeTuple lst = RecE $ zip (map show [1..(length lst)]) lst
@@ -102,3 +102,10 @@ makeFieldAccess = foldl FieldE
 makeCall :: Expr -> [Expr] -> Expr
 makeCall = foldl CallE 
 
+validate :: (a -> Bool) -> String -> a -> a
+validate f err a = if (f a) then a else error err
+
+-- Checks to ensure there are no conflicts among the field names
+validateFieldNames :: [(Symbol, a)] -> [(Symbol, a)]
+validateFieldNames = validate (uniqueSymbols . fst . unzip)
+                              "Duplicate record field names."
