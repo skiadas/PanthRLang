@@ -16,9 +16,10 @@ def = emptyDef{ commentLine = "--"
               , identLetter = alphaNum
               , opStart = oneOf "+*-/<>=!ano"
               , opLetter = oneOf "+*-/<>"
-              , reservedOpNames = ["+", "*", "-", "/", ">=", "<=", ">", "<", "==", "!=", "and", "or", "not", "\\", "->", "."]
+              , reservedOpNames = ["+", "*", "-", "/", ">=", "<=", ">", "<", "==", "!=", "and", "or", "not", "\\", "->", ".", "="]
               , reservedNames = ["true", "false",
-                                 "if", "then", "else"]
+                                 "if", "then", "else",
+                                 "let", "in"]
               }
 
 TokenParser{ parens = m_parens
@@ -82,6 +83,7 @@ term = (try $ m_parens (do {
     <|> m_vector
     <|> m_record
     <|> m_tuple
+    <|> m_let
 
 m_number = try (do {
         v <- m_float; return (makeDouble v)
@@ -118,5 +120,22 @@ m_fieldterm = do {
     v <- exprparser;
     return (s, v);
 }
+m_let = do {
+    m_reserved "let";
+    bindings <- many1 let_pair;
+    m_reserved "in";
+    expr <- exprparser;
+    return $ makeLet bindings expr;
+}
+let_pair = do {
+    p <- patternparser;
+    m_reservedOp "=";
+    val <- exprparser;
+    return (p, val);
+}
+patternparser = p_symbol <|> p_tuple <|> p_record
+p_symbol = fmap makeVarPat $ m_identifier
+p_tuple = try $ m_parens $ fmap makeTuplePat $ m_commaSep1 patternparser
+p_record = fmap makeVarPat $ m_identifier --- TODO: FIXME
 
 parseExpr = parse exprparser ""

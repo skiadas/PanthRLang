@@ -40,6 +40,12 @@ data Value = IntV Integer | DblV Double | BoolV Bool | StrV String
            | RecV [(Symbol, Value)]
            deriving (Show)
 
+-- Patterns
+data Pattern = VarP Symbol                -- Variable
+             | RecP [(Symbol, Pattern)]   -- Record / Tuple
+             | WildP                      -- Wildcard
+             deriving (Show)
+
 arithmOps = [(OpPlus, "+", (+)),
              (OpMinus, "-", (-)),
              (OpMult, "*", (*)),
@@ -56,6 +62,7 @@ dblFunFromArithmOp OpMinus = (-)
 dblFunFromArithmOp OpMult = (*)
 dblFunFromArithmOp OpDivide = (/)
 
+makeLet    = LetE
 makeVector = VectorE
 makeIf     = IfE
 makeBool   = BoolE
@@ -95,6 +102,13 @@ makeRecord = RecE . validateFieldNames . map (\(s,v) -> (toSymbol s, v))
 
 makeTuple :: [Expr] -> Expr
 makeTuple lst = RecE $ zip (map show [1..(length lst)]) lst
+
+makeTuplePat :: [Pattern] -> Pattern
+makeTuplePat lst = RecP $ zip (map show [1..(length lst)]) lst
+
+makeVarPat :: String -> Pattern
+makeVarPat = VarP . toSymbol
+
 makeFieldAccess :: Expr -> [Symbol] -> Expr
 makeFieldAccess = foldl FieldE
 
