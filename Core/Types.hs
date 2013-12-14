@@ -20,6 +20,7 @@ data Expr = IntE Integer | DblE Double | BoolE Bool | StrE String
           | CallE Expr Expr
           | RecE [(Symbol, Expr)] -- Records. Order does not matter. Doubling as tuples
           | FieldE Expr Symbol    -- Record field access.
+          | LetE [(Pattern, Expr)] Expr   -- Acts as let*
           deriving (Show)
 
 -- Binary operators
@@ -31,6 +32,7 @@ data Function = LambdaE Symbol Expr | BuiltInE (Value -> Value)
 
 instance Show Function where
     show _ = "function"
+
 -- Data type for possible values
 data Value = IntV Integer | DblV Double | BoolV Bool | StrV String
            | VectorV [Value]
@@ -54,17 +56,13 @@ dblFunFromArithmOp OpMinus = (-)
 dblFunFromArithmOp OpMult = (*)
 dblFunFromArithmOp OpDivide = (/)
 
-toVar :: String -> Expr
-toVar = VarE . toSymbol
+makeVector = VectorE
+makeIf     = IfE
+makeBool   = BoolE
+makeInt    = IntE . toInteger
+makeDouble = DblE
+makeVar    = VarE . toSymbol
 
-toDouble :: Double -> Expr
-toDouble = DblE
-
-toInt :: Integral a => a -> Expr
-toInt = IntE . toInteger
-
-toBool :: Bool -> Expr
-toBool = BoolE
 
 toString :: String -> Expr
 toString = StrE
@@ -97,3 +95,10 @@ makeRecord = RecE . map (\(s,v) -> (toSymbol s, v))
 
 makeTuple :: [Expr] -> Expr
 makeTuple lst = RecE $ zip (map show [1..(length lst)]) lst
+makeFieldAccess :: Expr -> [Symbol] -> Expr
+makeFieldAccess = foldl FieldE
+
+-- "makeCall f argsList"  creates a curried application of f on each arg in order
+makeCall :: Expr -> [Expr] -> Expr
+makeCall = foldl CallE 
+

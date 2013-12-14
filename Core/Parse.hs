@@ -66,38 +66,38 @@ table = [
 fielded_term = do {
     obj <- term;
     fielded <- many m_field;
-    return $ foldl FieldE obj fielded;
+    return $ makeFieldAccess obj fielded;
 }
 term = (try $ m_parens (do {
         firstT <- exprparser;
         restTs <- many1 exprparser;
-        return (foldl CallE firstT restTs);
+        return $ makeCall firstT restTs;
     }))
     <|> try (m_parens exprparser)
     <|> m_number
     <|> m_bool
     <|> m_ifthenelse
     <|> m_lambda
-    <|> fmap toVar m_identifier
+    <|> fmap makeVar m_identifier
     <|> m_vector
     <|> m_record
     <|> m_tuple
 
 m_number = try (do {
-        v <- m_float; return (toDouble v)
+        v <- m_float; return (makeDouble v)
     })
     <|> do {
-        v <- m_integer; return (toInt v)
+        v <- m_integer; return (makeInt v)
     }
 
-m_bool =  (m_reserved "true"  >> return (toBool True ))
-      <|> (m_reserved "false" >> return (toBool False))
+m_bool =  (m_reserved "true"  >> return (makeBool True ))
+      <|> (m_reserved "false" >> return (makeBool False))
 
 m_ifthenelse = do {
     m_reserved "if"; e_if <- exprparser;
     m_reserved "then"; e_then <- exprparser;
     m_reserved "else"; e_else <- exprparser;
-    return (IfE e_if e_then e_else)
+    return (makeIf e_if e_then e_else)
 }
 
 m_lambda = do {
@@ -108,7 +108,7 @@ m_lambda = do {
     return $ makeLambda ids body;
 }
 
-m_vector = m_brackets $ fmap VectorE (m_commaSep exprparser)
+m_vector = m_brackets $ fmap makeVector (m_commaSep exprparser)
 m_field = m_dot >> m_identifier
 m_record = m_braces $ fmap makeRecord $ m_commaSep m_fieldterm
 m_tuple = try $ m_parens $ fmap makeTuple $ m_commaSep1 exprparser
