@@ -105,6 +105,9 @@ makeTuple lst = RecE $ zip (map show [1..(length lst)]) lst
 makeTuplePat :: [Pattern] -> Pattern
 makeTuplePat lst = RecP $ zip (map show [1..(length lst)]) lst
 
+makeRecPat :: [(String, Pattern)] -> Pattern
+makeRecPat lst = RecP $ zip (map toSymbol ss) pats where (ss, pats) = unzip lst
+
 makeVarPat :: String -> Pattern
 makeVarPat = VarP . toSymbol
 

@@ -133,9 +133,16 @@ let_pair = do {
     val <- exprparser;
     return (p, val);
 }
-patternparser = p_symbol <|> p_tuple <|> p_record
+patternparser = p_symbol <|> p_tuple <|> p_record <|> p_wildcard <?> "pattern"
 p_symbol = fmap makeVarPat $ m_identifier
-p_tuple = try $ m_parens $ fmap makeTuplePat $ m_commaSep1 patternparser
-p_record = fmap makeVarPat $ m_identifier --- TODO: FIXME
+p_tuple = m_parens $ fmap makeTuplePat $ m_commaSep1 patternparser
+p_record = m_braces $ fmap makeRecPat $ m_commaSep1 p_field
+p_field = do {
+    s <- m_identifier;
+    m_reservedOp ":";
+    p <- patternparser;
+    return (s, p);
+}
+p_wildcard = m_reservedOp "_" >> return WildP
 
 parseExpr = parse exprparser ""
