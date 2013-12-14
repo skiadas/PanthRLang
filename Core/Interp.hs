@@ -16,9 +16,6 @@ type IntrState = MyState IntrSt
 -- Replace emptyEnv with builtInEnv or find way to enter that in
 emptyState = IntrSt emptyEnv emptyStore
 
-getValue :: (a, b) -> a
-getValue (a, b) = a
-
 getEnv :: IntrState (Env Value)
 getEnv = MyState $ \st -> (env st, st)
 
@@ -124,7 +121,3 @@ negateV        _ = error "'negate' used on non-number";
 notV :: Value -> Value
 notV (BoolV b) = BoolV (not b)
 notV         _ = error "'not' used on non-boolean"
-
-unMaybe :: String -> Maybe a -> a
-unMaybe s (Just v) = v
-unMaybe s Nothing = error s

@@ -1,6 +1,6 @@
 -- module implementing functions related to environment lookups
 
-module Env (Env, Symbol, toSymbol, emptyEnv, locate, extend, extendList, uniqueSymbols) where
+module Env where
 
 import qualified Data.List(nub)
 type Symbol = String
@@ -25,3 +25,7 @@ extendList = flip (++)
 
 uniqueSymbols :: [Symbol] -> Bool
 uniqueSymbols lst = lst == Data.List.nub lst
+
+unMaybe :: String -> Maybe a -> a
+unMaybe s (Just v) = v
+unMaybe s Nothing = error s

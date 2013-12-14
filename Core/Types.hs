@@ -40,6 +40,14 @@ data Value = IntV Integer | DblV Double | BoolV Bool | StrV String
            | RecV [(Symbol, Value)]
            deriving (Show)
 
+data Type = BoolT | IntT | DblT | StrT   -- Base types
+          | RecT [(Symbol, Type)]       -- Records/Tuples
+          | VectorT Type
+          | FunT Type Type
+          | VarT Symbol        -- For type variables, types yet to be determined
+          | Top
+          deriving (Eq, Show)
+
 -- Patterns
 data Pattern = VarP Symbol                -- Variable
              | RecP [(Symbol, Pattern)]   -- Record / Tuple
@@ -128,3 +136,11 @@ validateFieldNames = validate (uniqueSymbols . fst . unzip)
 
 makeLet :: [(Pattern, Expr)] -> Expr -> Expr
 makeLet bs e = foldr LetE e bs
+
+-- Checks if its first argument contains a symbol
+contains :: Symbol -> Type -> Bool
+contains s (VarT s2) = s2 == s
+contains s (RecT lst) = any ((contains s) . snd) lst
+contains s (VectorT t) = contains s t
+contains s (FunT e1 e2) = (contains s e1) && (contains s e2)
+contains s _ = False

@@ -13,7 +13,14 @@ instance Monad (MyState s) where
     (>>=) f g = MyState $ \st -> let (v, st1) = runState f st
                                  in runState (g v) st1
 
+getValue :: (a, b) -> a
+getValue (a, b) = a
 
+getState :: MyState s s
+getState = MyState (\st -> (st, st))
+
+putState :: s -> MyState s ()
+putState st = MyState (\_ -> ((), st))
 
 sequenceStates :: [MyState s a] -> MyState s [a]
 sequenceStates = foldr fun (return []) where
