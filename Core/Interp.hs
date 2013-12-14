@@ -8,6 +8,7 @@ import Store
 import Parse(parseExpr)
 import BuiltIns(builtInEnv)
 import MyState
+import PatternMatch
 
 data IntrSt = IntrSt { env :: Env Value, st :: Store Value }
 type IntrState = MyState IntrSt
@@ -96,6 +97,11 @@ interpS (CallE e1 e2) = do {
             return (f v2);
         }
         _ -> error "Attempting to call non-function"
+}
+interpS (LetE (p, e) bodyE) = do {
+    envOrig <- getEnv;
+    v <- interpS e;
+    runWithTempEnv (extendBinding envOrig p v) (interpS bodyE);
 }
 
 

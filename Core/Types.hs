@@ -20,7 +20,7 @@ data Expr = IntE Integer | DblE Double | BoolE Bool | StrE String
           | CallE Expr Expr
           | RecE [(Symbol, Expr)] -- Records. Order does not matter. Doubling as tuples
           | FieldE Expr Symbol    -- Record field access.
-          | LetE [(Pattern, Expr)] Expr   -- Acts as let*
+          | LetE (Pattern, Expr) Expr   -- Acts as let*
           deriving (Show)
 
 -- Binary operators
@@ -62,7 +62,6 @@ dblFunFromArithmOp OpMinus = (-)
 dblFunFromArithmOp OpMult = (*)
 dblFunFromArithmOp OpDivide = (/)
 
-makeLet    = LetE
 makeVector = VectorE
 makeIf     = IfE
 makeBool   = BoolE
@@ -123,3 +122,6 @@ validate f err a = if (f a) then a else error err
 validateFieldNames :: [(Symbol, a)] -> [(Symbol, a)]
 validateFieldNames = validate (uniqueSymbols . fst . unzip)
                               "Duplicate record field names."
+
+makeLet :: [(Pattern, Expr)] -> Expr -> Expr
+makeLet bs e = foldr LetE e bs
