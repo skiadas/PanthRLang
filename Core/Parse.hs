@@ -44,24 +44,24 @@ sign = (char '-' >> return negate)
     <|> (char '+' >> return id)
     <|> return id
 
-exprparser :: Parser Expr
+exprparser :: Parser TExpr
 exprparser = buildExpressionParser table fielded_term <?> "expression"
 table = [
-          [Prefix (m_reservedOp "-"   >> return NegateE),
+          [Prefix (m_reservedOp "-"   >> return makeNegate),
            Prefix (m_reservedOp "+"   >> return id)]
-        , [Infix  (m_reservedOp "/"   >> return (ArithmE OpDivide)) AssocLeft
-        ,  Infix  (m_reservedOp "*"   >> return (ArithmE OpMult)) AssocLeft]
-        , [Infix  (m_reservedOp "-"   >> return (ArithmE OpMinus)) AssocLeft
-        ,  Infix  (m_reservedOp "+"   >> return (ArithmE OpPlus)) AssocLeft]
-        , [Infix  (m_reservedOp ">="  >> return (CompareE OpGeq)) AssocNone
-        ,  Infix  (m_reservedOp "<="  >> return (CompareE OpLeq)) AssocNone
-        ,  Infix  (m_reservedOp ">"   >> return (CompareE OpGreater)) AssocNone
-        ,  Infix  (m_reservedOp "<"   >> return (CompareE OpLess)) AssocNone
-        ,  Infix  (m_reservedOp "=="  >> return (CompareE OpEq)) AssocNone
-        ,  Infix  (m_reservedOp "!="  >> return (CompareE OpNeq)) AssocNone]
-        , [Prefix (m_reservedOp "not" >> return NotE)]
-        , [Infix  (m_reservedOp "and" >> return (LogicalE OpAnd)) AssocLeft
-        ,  Infix  (m_reservedOp "or"  >> return (LogicalE OpOr)) AssocLeft]
+        , [Infix  (m_reservedOp "/"   >> return (makeArithmOp  OpDivide)) AssocLeft
+        ,  Infix  (m_reservedOp "*"   >> return (makeArithmOp  OpMult)) AssocLeft]
+        , [Infix  (m_reservedOp "-"   >> return (makeArithmOp  OpMinus)) AssocLeft
+        ,  Infix  (m_reservedOp "+"   >> return (makeArithmOp  OpPlus)) AssocLeft]
+        , [Infix  (m_reservedOp ">="  >> return (makeCompareOp OpGeq)) AssocNone
+        ,  Infix  (m_reservedOp "<="  >> return (makeCompareOp OpLeq)) AssocNone
+        ,  Infix  (m_reservedOp ">"   >> return (makeCompareOp OpGreater)) AssocNone
+        ,  Infix  (m_reservedOp "<"   >> return (makeCompareOp OpLess)) AssocNone
+        ,  Infix  (m_reservedOp "=="  >> return (makeCompareOp OpEq)) AssocNone
+        ,  Infix  (m_reservedOp "!="  >> return (makeCompareOp OpNeq)) AssocNone]
+        , [Prefix (m_reservedOp "not" >> return makeNot)]
+        , [Infix  (m_reservedOp "and" >> return (makeLogicalOp OpAnd)) AssocLeft
+        ,  Infix  (m_reservedOp "or"  >> return (makeLogicalOp OpOr)) AssocLeft]
         ]
 
 fielded_term = do {

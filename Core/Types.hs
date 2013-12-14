@@ -8,19 +8,21 @@ data Info = None -- Temporary placeholder. This type meant to contain parsing in
 
 data SourceExpr = SExpr Info Expr
 
+data TExpr = Typed { typ :: Type, expr :: Expr } deriving (Show)
+
 data Expr = IntE Integer | DblE Double | BoolE Bool | StrE String
-          | VectorE [Expr]
-          | ArithmE ArithmOp Expr Expr
-          | LogicalE LogicOp Expr Expr
-          | CompareE CompareOp Expr Expr -- Binary Ops
-          | NegateE Expr | NotE Expr -- Unary Ops
-          | IfE Expr Expr Expr   -- if-then-else
+          | VectorE [TExpr]
+          | ArithmE ArithmOp TExpr TExpr
+          | LogicalE LogicOp TExpr TExpr
+          | CompareE CompareOp TExpr TExpr -- Binary Ops
+          | NegateE TExpr | NotE TExpr -- Unary Ops
+          | IfE TExpr TExpr TExpr   -- if-then-else
           | FunE Function
           | VarE Symbol
-          | CallE Expr Expr
-          | RecE [(Symbol, Expr)] -- Records. Order does not matter. Doubling as tuples
-          | FieldE Expr Symbol    -- Record field access.
-          | LetE (Pattern, Expr) Expr   -- Acts as let*
+          | CallE TExpr TExpr
+          | RecE [(Symbol, TExpr)] -- Records. Order does not matter. Doubling as tuples
+          | FieldE TExpr Symbol    -- Record field access.
+          | LetE (Pattern, TExpr) TExpr   -- Acts as let*
           deriving (Show)
 
 -- Binary operators
@@ -28,7 +30,7 @@ data ArithmOp = OpPlus | OpMinus | OpMult | OpDivide deriving (Eq, Show)
 data LogicOp = OpAnd | OpOr deriving (Eq, Show)
 data CompareOp = OpGreater | OpLess | OpGeq | OpLeq | OpEq | OpNeq deriving (Eq, Show)
 
-data Function = LambdaE Symbol Expr | BuiltInE (Value -> Value)
+data Function = LambdaE Symbol TExpr | BuiltInE (Value -> Value)
 
 instance Show Function where
     show _ = "function"
@@ -46,6 +48,7 @@ data Type = BoolT | IntT | DblT | StrT   -- Base types
           | FunT Type Type
           | VarT Symbol        -- For type variables, types yet to be determined
           | Top
+          | UndefT             -- Undefined type. Non-primitives start that way
           deriving (Eq, Show)
 
 -- Patterns
@@ -70,16 +73,57 @@ dblFunFromArithmOp OpMinus = (-)
 dblFunFromArithmOp OpMult = (*)
 dblFunFromArithmOp OpDivide = (/)
 
-makeVector = VectorE
-makeIf     = IfE
-makeBool   = BoolE
-makeInt    = IntE . toInteger
-makeDouble = DblE
-makeVar    = VarE . toSymbol
+
+makeTExpr            = Typed
+makeUnTExpr          = Typed UndefT
+makeVector           = makeUnTExpr . VectorE
+makeIf         a b c = makeUnTExpr $ IfE a b c
+makeBool             = (makeTExpr BoolT) . BoolE
+makeInt              = (makeTExpr  IntT) . IntE . toInteger
+makeDouble           = (makeTExpr  DblT) . DblE
+makeString           = (makeTExpr StrT) . StrE
+makeVar              = makeUnTExpr . VarE . toSymbol
+makeCompareOp op b c = makeUnTExpr (CompareE op b c)
+makeArithmOp  op b c = makeUnTExpr (ArithmE  op b c)
+makeLogicalOp op b c = makeUnTExpr (LogicalE op b c)
+makeNot              = makeUnTExpr . NotE
+makeNegate           = makeUnTExpr . NegateE
+
+makeLambda :: [String] -> TExpr -> TExpr
+makeLambda [] body = body
+makeLambda [s] body = makeUnTExpr . FunE $ LambdaE (toSymbol s) body
+makeLambda (s:rest) body = makeLambda [s] (makeLambda rest body)
+
+makeField :: TExpr -> String -> TExpr
+makeField obj s = makeUnTExpr $ FieldE obj (toSymbol s)
+
+makeRecord :: [(String, TExpr)] -> TExpr
+makeRecord = makeUnTExpr . RecE . validateFieldNames . map (\(s,v) -> (toSymbol s, v)) 
+
+makeTuple :: [TExpr] -> TExpr
+makeTuple lst = makeUnTExpr . RecE $ zip (map show [1..(length lst)]) lst
+
+makeTuplePat :: [Pattern] -> Pattern
+makeTuplePat lst = RecP $ zip (map show [1..(length lst)]) lst
+
+makeRecPat :: [(String, Pattern)] -> Pattern
+makeRecPat lst = RecP $ zip (map toSymbol ss) pats where (ss, pats) = unzip lst
+
+makeVarPat :: String -> Pattern
+makeVarPat = VarP . toSymbol
+
+makeFieldAccess :: TExpr -> [Symbol] -> TExpr
+makeFieldAccess = foldl (\e s -> Typed UndefT $ FieldE e s)
+
+-- "makeCall f argsList"  creates a curried application of f on each arg in order
+makeCall :: TExpr -> [TExpr] -> TExpr
+makeCall = foldl (\f arg -> (Typed UndefT $ CallE f arg))
+
+makeLet :: [(Pattern, TExpr)] -> TExpr -> TExpr
+makeLet bs e = foldr (\b e -> Typed UndefT $ LetE b e) e bs
 
 
-toString :: String -> Expr
-toString = StrE
+
 
 ensureBool :: Value -> Value
 ensureBool b@(BoolV _) = b
@@ -97,35 +141,6 @@ applyOp OpLeq     = (<=)
 applyOp OpEq      = (==)
 applyOp OpNeq     = (/=)
 
-makeLambda :: [String] -> Expr -> Expr
-makeLambda [] body = body
-makeLambda (s:rest) body = FunE $ LambdaE (toSymbol s) (makeLambda rest body)
-
-makeField :: Expr -> String -> Expr
-makeField obj s = FieldE obj (toSymbol s)
-
-makeRecord :: [(String, Expr)] -> Expr
-makeRecord = RecE . validateFieldNames . map (\(s,v) -> (toSymbol s, v)) 
-
-makeTuple :: [Expr] -> Expr
-makeTuple lst = RecE $ zip (map show [1..(length lst)]) lst
-
-makeTuplePat :: [Pattern] -> Pattern
-makeTuplePat lst = RecP $ zip (map show [1..(length lst)]) lst
-
-makeRecPat :: [(String, Pattern)] -> Pattern
-makeRecPat lst = RecP $ zip (map toSymbol ss) pats where (ss, pats) = unzip lst
-
-makeVarPat :: String -> Pattern
-makeVarPat = VarP . toSymbol
-
-makeFieldAccess :: Expr -> [Symbol] -> Expr
-makeFieldAccess = foldl FieldE
-
--- "makeCall f argsList"  creates a curried application of f on each arg in order
-makeCall :: Expr -> [Expr] -> Expr
-makeCall = foldl CallE 
-
 validate :: (a -> Bool) -> String -> a -> a
 validate f err a = if (f a) then a else error err
 
@@ -133,9 +148,6 @@ validate f err a = if (f a) then a else error err
 validateFieldNames :: [(Symbol, a)] -> [(Symbol, a)]
 validateFieldNames = validate (uniqueSymbols . fst . unzip)
                               "Duplicate record field names."
-
-makeLet :: [(Pattern, Expr)] -> Expr -> Expr
-makeLet bs e = foldr LetE e bs
 
 -- Checks if its first argument contains a symbol
 contains :: Symbol -> Type -> Bool
