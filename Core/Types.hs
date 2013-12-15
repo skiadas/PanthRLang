@@ -43,7 +43,8 @@ data Value = IntV Integer | DblV Double | BoolV Bool | StrV String
            deriving (Show)
 
 data Type = BoolT | IntT | DblT | StrT   -- Base types
-          | RecT [(Symbol, Type)]       -- Records/Tuples
+          | NumT                         -- Type to encompass all numerical operations
+          | RecT [(Symbol, Type)]        -- Records/Tuples
           | VectorT Type
           | FunT Type Type
           | VarT Symbol        -- For type variables, types yet to be determined
