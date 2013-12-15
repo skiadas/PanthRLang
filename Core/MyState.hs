@@ -22,6 +22,9 @@ getState = MyState (\st -> (st, st))
 putState :: s -> MyState s ()
 putState st = MyState (\_ -> ((), st))
 
+updateState :: (s -> s) -> MyState s ()
+updateState f = MyState (\st -> ((), f st))
+
 sequenceStates :: [MyState s a] -> MyState s [a]
 sequenceStates = foldr fun (return []) where
                         fun f fl = f >>= (\el -> (fmap (el:)) fl)
