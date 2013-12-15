@@ -1,7 +1,7 @@
 module BuiltIns where
     
 import Types
-import Env(Symbol, emptyEnv, extendList, toSymbol)
+import Env(Symbol, emptyEnv, extendList, makeSymbol)
 
 closeBuiltIn g = ClosV emptyEnv $ BuiltInE g
 
@@ -40,7 +40,7 @@ liftDblDblDbl f = closeBuiltIn g where
                     h _ _ = error "Expected double in built-in"
 
 liftEnv :: (a -> Value) -> (String, a) -> (Symbol, Value)
-liftEnv g (s, f) = (toSymbol s, g f)
+liftEnv g (s, f) = (makeSymbol s, g f)
 
 
 builtIns      =  map (liftEnv id) [("pi", DblV pi), ("e", DblV (exp 1))]

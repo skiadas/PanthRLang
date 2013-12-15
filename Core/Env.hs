@@ -3,11 +3,28 @@
 module Env where
 
 import qualified Data.List(nub)
-type Symbol = String
 
-toSymbol :: String -> Symbol
-toSymbol s = s
+-- Symbols
+data Symbol = Symbol { toString :: String } deriving (Eq)
 
+instance Show Symbol where
+    show (Symbol s) = '\'' : s
+
+makeSymbol :: String -> Symbol
+makeSymbol s = Symbol s
+
+-- Infinite Symbol generators
+data SymbolGen = SGen { sym :: Symbol, next :: SymbolGen }
+
+nextGen n = SGen (makeSymbol $ "_X"++show n) (nextGen $ n+1)
+
+seedGen :: SymbolGen
+seedGen = nextGen 0
+
+
+
+
+-- Environment
 type Env a = [(Symbol, a)]
 
 emptyEnv = [] :: Env a

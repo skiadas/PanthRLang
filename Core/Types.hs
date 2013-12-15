@@ -83,7 +83,7 @@ makeBool             = (makeTExpr BoolT) . BoolE
 makeInt              = (makeTExpr  IntT) . IntE . toInteger
 makeDouble           = (makeTExpr  DblT) . DblE
 makeString           = (makeTExpr StrT) . StrE
-makeVar              = makeUnTExpr . VarE . toSymbol
+makeVar              = makeUnTExpr . VarE . makeSymbol
 makeCompareOp op b c = makeUnTExpr (CompareE op b c)
 makeArithmOp  op b c = makeUnTExpr (ArithmE  op b c)
 makeLogicalOp op b c = makeUnTExpr (LogicalE op b c)
@@ -92,29 +92,29 @@ makeNegate           = makeUnTExpr . NegateE
 
 makeLambda :: [String] -> TExpr -> TExpr
 makeLambda [] body = body
-makeLambda [s] body = makeUnTExpr . FunE $ LambdaE (toSymbol s) body
+makeLambda [s] body = makeUnTExpr . FunE $ LambdaE (makeSymbol s) body
 makeLambda (s:rest) body = makeLambda [s] (makeLambda rest body)
 
 makeField :: TExpr -> String -> TExpr
-makeField obj s = makeUnTExpr $ FieldE obj (toSymbol s)
+makeField obj s = makeUnTExpr $ FieldE obj (makeSymbol s)
 
 makeRecord :: [(String, TExpr)] -> TExpr
-makeRecord = makeUnTExpr . RecE . validateFieldNames . map (\(s,v) -> (toSymbol s, v)) 
+makeRecord = makeUnTExpr . RecE . validateFieldNames . map (\(s,v) -> (makeSymbol s, v)) 
 
 makeTuple :: [TExpr] -> TExpr
-makeTuple lst = makeUnTExpr . RecE $ zip (map show [1..(length lst)]) lst
+makeTuple lst = makeUnTExpr . RecE $ zip (map (makeSymbol . show) [1..(length lst)]) lst
 
 makeTuplePat :: [Pattern] -> Pattern
-makeTuplePat lst = RecP $ zip (map show [1..(length lst)]) lst
+makeTuplePat lst = RecP $ zip (map (makeSymbol . show) [1..(length lst)]) lst
 
 makeRecPat :: [(String, Pattern)] -> Pattern
-makeRecPat lst = RecP $ zip (map toSymbol ss) pats where (ss, pats) = unzip lst
+makeRecPat lst = RecP $ zip (map makeSymbol ss) pats where (ss, pats) = unzip lst
 
 makeVarPat :: String -> Pattern
-makeVarPat = VarP . toSymbol
+makeVarPat = VarP . makeSymbol
 
-makeFieldAccess :: TExpr -> [Symbol] -> TExpr
-makeFieldAccess = foldl (\e s -> Typed UndefT $ FieldE e s)
+makeFieldAccess :: TExpr -> [String] -> TExpr
+makeFieldAccess = foldl (\e s -> Typed UndefT $ FieldE e (makeSymbol s))
 
 -- "makeCall f argsList"  creates a curried application of f on each arg in order
 makeCall :: TExpr -> [TExpr] -> TExpr
