@@ -38,51 +38,51 @@ eval s = case parseExpr s of
     Left e -> error ("Error during parsing: " ++ show e)
     Right v -> interp v
 
-interp :: Expr -> Value
+interp :: TExpr -> Value
 interp e = getValue $ runState (interpS e) emptyState
 
-interpS :: Expr -> IntrState Value
-interpS (IntE  i) = return (IntV  i)
-interpS (DblE  d) = return (DblV  d)
-interpS (BoolE b) = return (BoolV b)
-interpS (StrE  s) = return (StrV  s)
-interpS (VectorE lst) = fmap VectorV $ sequenceStates (map interpS lst)
-interpS (RecE lst) = fmap RecV $ fmap (\(s,t) -> zip s t)
-                               $ fmap ((,) (map makeSymbol ids))
+interpS :: TExpr -> IntrState Value
+interpS (Typed _ (IntE  i)) = return (IntV  i)
+interpS (Typed _ (DblE  d)) = return (DblV  d)
+interpS (Typed _ (BoolE b)) = return (BoolV b)
+interpS (Typed _ (StrE  s)) = return (StrV  s)
+interpS (Typed _ (VectorE lst)) = fmap VectorV $ sequenceStates (map interpS lst)
+interpS (Typed _ (RecE lst)) = fmap RecV $ fmap (\(s,t) -> zip s t)
+                               $ fmap ((,) ids)
                                       (sequenceStates $ map interpS exps)
                                                 where (ids, exps) = unzip lst
-interpS (FieldE e s) = do { -- Should be able to make this shorter
+interpS (Typed _ (FieldE e s)) = do { -- Should be able to make this shorter
     v <- (interpS e);
     case v of
         (RecV obj) -> return $ unMaybe ("Field not in record: " ++ show s) (locate obj s);
         _ -> fail "Attempting to access field of non-record.";
 }
-interpS (ArithmE op e1 e2) = do {
+interpS (Typed _ (ArithmE op e1 e2)) = do {
     v1 <- interpS e1;
     v2 <- interpS e2;
     return $ applyArithmOp op v1 v2;
 }
-interpS (LogicalE OpAnd e1 e2) = do {
+interpS (Typed _ (LogicalE OpAnd e1 e2)) = do {
         v1 <- interpS e1;
         if (valToBool v1)
         then interpS e2  -- Should be doing ensureBool here?
         else return v1;
 }
-interpS (LogicalE OpOr e1 e2) = do {
+interpS (Typed _ (LogicalE OpOr e1 e2)) = do {
         v1 <- interpS e1;
         if valToBool v1
         then return v1
         else interpS e2;
 }
-interpS (NegateE e) = (fmap negateV) (interpS e)
-interpS (NotE e) = (fmap notV) (interpS e)
-interpS (IfE e_if e_then e_else) = do {
+interpS (Typed _ (NegateE e)) = (fmap negateV) (interpS e)
+interpS (Typed _ (NotE e)) = (fmap notV) (interpS e)
+interpS (Typed _ (IfE e_if e_then e_else)) = do {
     v <- interpS e_if;
     interpS $ if (valToBool v) then e_then else e_else;
 }
-interpS (VarE s) = fmap ((unMaybe ("Unbound identifier: " ++ show s)) . (`locate` s)) getEnv
-interpS (FunE e) = fmap (`ClosV` e) getEnv
-interpS (CallE e1 e2) = do {
+interpS (Typed _ (VarE s)) = fmap ((unMaybe ("Unbound identifier: " ++ show s)) . (`locate` s)) getEnv
+interpS (Typed _ (FunE e)) = fmap (`ClosV` e) getEnv
+interpS (Typed _ (CallE e1 e2)) = do {
     v1 <- interpS e1;
     case v1 of 
         (ClosV env1 (LambdaE s body)) ->  do {
@@ -95,7 +95,7 @@ interpS (CallE e1 e2) = do {
         }
         _ -> error "Attempting to call non-function"
 }
-interpS (LetE (p, e) bodyE) = do {
+interpS (Typed _ (LetE (p, e) bodyE)) = do {
     envOrig <- getEnv;
     v <- interpS e;
     runWithTempEnv (extendBinding envOrig p v) (interpS bodyE);
