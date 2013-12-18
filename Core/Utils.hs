@@ -6,3 +6,6 @@ joinF f g (a, b) = (f a, g b)
 
 applySnd :: (b -> c) -> (a, b) -> (a, c)
 applySnd  = joinF id
+
+applyFst :: (a -> b) -> (a, c) -> (b, c)
+applyFst = (`joinF` id)
