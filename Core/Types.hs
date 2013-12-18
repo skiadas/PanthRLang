@@ -8,7 +8,11 @@ data Info = None -- Temporary placeholder. This type meant to contain parsing in
 
 data SourceExpr = SExpr Info Expr
 
-data TExpr = Typed { typ :: Type, expr :: Expr } deriving (Show)
+data TExpr = Typed { typ :: Type, expr :: Expr }
+
+instance Show TExpr where
+    show (Typed UndefT expr) =  show expr
+    show (Typed ty expr) =  "(" ++ show expr ++ ": " ++ show ty ++ ")"
 
 data Expr = IntE Integer | DblE Double | BoolE Bool | StrE String
           | VectorE [TExpr]
@@ -23,7 +27,27 @@ data Expr = IntE Integer | DblE Double | BoolE Bool | StrE String
           | RecE [(Symbol, TExpr)] -- Records. Order does not matter. Doubling as tuples
           | FieldE TExpr Symbol    -- Record field access.
           | LetE (Pattern, TExpr) TExpr   -- Acts as let*
-          deriving (Show)
+          -- deriving (Show)
+
+instance Show Expr where
+    show (IntE e)            = show e
+    show (DblE e)            = show e
+    show (BoolE b)           = show b
+    show (StrE s)            = show s
+    show (VectorE lst)       = "[" ++ show lst ++ "]"
+    show (ArithmE op e1 e2)  = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
+    show (LogicalE op e1 e2) = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
+    show (CompareE op e1 e2) = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
+    show (NegateE e1)        = "(-" ++ show e1 ++ ")"
+    show (NotE e1)           = "(not " ++ show e1 ++ ")"
+    show (IfE e1 e2 e3)      = "if " ++ show e1 ++ " then " ++ show e2
+                                                ++ " else " ++ show e3
+    show (FunE f)            = show f
+    show (VarE s)            = show s
+    show (CallE e1 e2)       = "(" ++ show e1 ++ " " ++ show e2 ++ ")"
+    show (RecE lst)          = "rec"   -- FIXME
+    show (FieldE e s)        = "field"  -- FIXME
+    show (LetE (p, e1) e2)   = "let " ++ show p ++ "=" ++ show e1 ++ " in " ++ show e2
 
 -- Binary operators
 data ArithmOp = OpPlus | OpMinus | OpMult | OpDivide deriving (Eq, Show)
@@ -33,7 +57,7 @@ data CompareOp = OpGreater | OpLess | OpGeq | OpLeq | OpEq | OpNeq deriving (Eq,
 data Function = LambdaE Symbol TExpr | BuiltInE (Value -> Value)
 
 instance Show Function where
-    show _ = "function"
+    show _ = "fun"
 
 -- Data type for possible values
 data Value = IntV Integer | DblV Double | BoolV Bool | StrV String
@@ -50,7 +74,20 @@ data Type = BoolT | IntT | DblT | StrT   -- Base types
           | VarT Symbol        -- For type variables, types yet to be determined
           | Top
           | UndefT             -- Undefined type. Non-primitives start that way
-          deriving (Eq, Show)
+          deriving (Eq)
+
+instance Show Type where
+    show BoolT        = "Bool"
+    show IntT         = "Int"
+    show DblT         = "Dbl"
+    show StrT         = "Str"
+    show NumT         = "Num"
+    show (VectorT t)  = "[" ++ show t ++ "]"
+    show (RecT _)     = "Rec"    -- FIXME
+    show (FunT t1 t2) = show t1 ++ " -> " ++ show t2
+    show (VarT s)     = show s
+    show Top          = "top"
+    show UndefT       = "undef"
 
 -- Patterns
 data Pattern = VarP Symbol                -- Variable
