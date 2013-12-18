@@ -1,3 +1,5 @@
+A more detailed description of the language can be found [here](coreLanguage.md)
+
 A description of the stats primitives, i.e. the math part of the core language
 
 ## Primitive structures
