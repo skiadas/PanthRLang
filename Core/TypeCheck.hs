@@ -1,5 +1,8 @@
 module TypeCheck where
 
+import Utils
+import Env
+import Types
 import Parse  -- TODO: Remove later?
 import MyState
 import TypeCheckTypes
@@ -8,9 +11,10 @@ import Unify
 
 typeCheck str = case parseExpr str of
         Left e -> error ("Error during parsing: " ++ show e)
-        Right v -> (e, ctx, ctx2) where
+        Right v -> (e2, ctx, ctx2) where
                         (e, TypingSt ctx con _) = typeCheckExpr v
                         ctx2 = unify con
+                        e2 = fixTExpr ctx2 e
         -- Right v -> (t2, con2) where
         --     (t, con) = typeCheckExpr v
         --     con2 = resolveTypes . reverse $ unify con
@@ -19,20 +23,23 @@ typeCheck str = case parseExpr str of
 typeCheckExpr expr = runState (genConstraints expr) $ emptyState
 
 
--- 
--- 
--- -- resolves types from left to right by substituting into the remaining types.
--- -- requires reversing the list provided by unify
--- resolveTypes :: TypeContext -> TypeContext
--- resolveTypes [] = []
--- resolveTypes ((s, ty):rest) = (s, ty):resolveTypes (map (applySnd $ subs1 s ty) rest)
--- 
--- 
--- fixTypes :: Typed Expr -> TypeContext -> Typed Expr
--- fixTypes te _ = te  -- FIXME for now till we move typed expressions into the parse process
--- -- fixTypes te = foldl fixType te
--- -- 
--- -- fixType :: Typed Expr -> (Symbol, Type) -> Typed Expr
--- -- fixType (t, expr) (s, ty) = (subs1 s ty t, fixExpr expr (s, ty))
--- -- 
--- 
+fixTExpr :: Context -> TExpr -> TExpr
+fixTExpr (Cntx env) (Typed ty e) = Typed ty2 e2 where
+                ty2 = substTypes env ty
+                e2  = substInExpr (Cntx env) e
+
+substInExpr :: Context -> Expr -> Expr
+substInExpr (Cntx env) e = let fixTE = fixTExpr (Cntx env) in case e of
+        (VectorE lst) -> VectorE (map fixTE lst)
+        (RecE lst)    -> RecE (map (applySnd fixTE) lst)
+        (ArithmE  op te1 te2) -> ArithmE  op (fixTE te1) (fixTE te2)
+        (LogicalE op te1 te2) -> LogicalE op (fixTE te1) (fixTE te2)
+        (CompareE op te1 te2) -> CompareE op (fixTE te1) (fixTE te2)
+        (NegateE te) -> NegateE (fixTE te)
+        (NotE te)    -> NotE (fixTE te)
+        (IfE te1 te2 te3)     -> IfE (fixTE te1) (fixTE te2) (fixTE te3)
+        (FunE (LambdaE s te)) -> FunE (LambdaE s (fixTE te))
+        (CallE te1 te2)       -> CallE (fixTE te1) (fixTE te2)
+        (FieldE te s)         -> FieldE (fixTE te) s
+        (LetE (p, te1) te2)   -> (LetE (p, (fixTE te1)) (fixTE te2))
+        otherwise -> e

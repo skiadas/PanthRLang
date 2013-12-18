@@ -78,6 +78,7 @@ genConstraints e =
             addConstraintList [(t, ty), (typ te1, FunT (typ te2) t)];
             return $ Typed t (CallE te1 te2);
         }
-        -- -- RecE still left
-        -- -- FieldE still left
+        -- Need LetE
+        -- RecE still left
+        -- FieldE still left
         otherwise -> error "Not implemented yet";

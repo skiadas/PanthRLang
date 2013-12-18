@@ -6,7 +6,10 @@ import Env
 import MyState
 
  -- Used when the symbol represents program variables
-data Context = Cntx {ctx :: Env Type } deriving (Show)
+data Context = Cntx {ctx :: Env Type }
+
+instance Show Context where
+    show (Cntx env) = show env
 
 extendCtx :: Symbol -> Type -> Context -> Context
 extendCtx s ty (Cntx env) = Cntx $ extend env s ty
