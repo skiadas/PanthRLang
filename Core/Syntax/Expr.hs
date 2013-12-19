@@ -167,7 +167,7 @@ makeLet bs ex = foldr (\b e -> LetE (info ex) b e) ex bs
 
 
 
-validate :: Sourceable a => (a -> Bool) -> String -> a -> MaybeE a
+validate :: Sourceable a => (a -> Bool) -> [String] -> a -> MaybeE a
 validate f errMes a = if (f a) then ok a else err (src a) errMes
 
 -- Checks to ensure there are no conflicts among the field names
@@ -177,5 +177,5 @@ validateFieldNames = foldr fun (pure [])
 
 addIfDone :: Sourceable a => (Symbol, a) -> [(Symbol, a)] -> MaybeE [(Symbol, a)]
 addIfDone (s, a) lst = if (s `elem`) $ map fst lst
-                       then err (src a) "Duplicate record field names."
+                       then err (src a) ["Duplicate record field names."]
                        else ok $ (s, a):lst

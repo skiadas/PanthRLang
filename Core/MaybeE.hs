@@ -11,7 +11,7 @@ module MaybeE
 import Control.Applicative
 import Text.Parsec.Pos
 
-newtype ErrorMes = Err (Maybe SourcePos, String)
+newtype ErrorMes = Err (Maybe SourcePos, [String])
 
 data MaybeE a = Error ErrorMes | Ok a
 
@@ -33,6 +33,6 @@ instance Monad MaybeE where
 ok :: a -> MaybeE a
 ok a = Ok a
 
-err :: Maybe SourcePos -> String -> MaybeE a
+err :: Maybe SourcePos -> [String] -> MaybeE a
 err p s = Error (Err (p, s))
 

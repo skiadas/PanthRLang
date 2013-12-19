@@ -5,6 +5,7 @@ import Syntax
 import MaybeE(ok, err)
 import Control.Applicative((<*), (<*>))
 import Text.Parsec
+import Text.Parsec.Error
 import Text.Parsec.String
 import Text.Parsec.Expr
 import Text.Parsec.Token
@@ -151,6 +152,11 @@ p_field = do {
 }
 p_wildcard = m_reservedOp "_" >> (sourcefy UndefT $ return WildP)
 
-parseExpr = parse exprparser ""
+parseExpr :: String -> SrcExpr
+parseExpr = maybefy . (parse exprparser "")
 
-sourcefy ty f = f <*> (fmap (\p -> Info (Just p, ty)) getPosition) 
+maybefy :: Either ParseError (Expr Info) -> SrcExpr
+maybefy (Left e) = err (Just $ errorPos e) (map messageString $ errorMessages e)
+maybefy (Right e) = ok e
+
+sourcefy ty f = f <*> (fmap (\p -> Info (Just p, ty)) getPosition)
