@@ -2,7 +2,7 @@ module TypeCheck where
 
 import Utils
 import Env
-import Types
+import Syntax
 import Parse  -- TODO: Remove later?
 import MyState
 import TypeCheckTypes

@@ -1,6 +1,6 @@
 module PatternMatch where
 
-import Types
+import Syntax
 import Env
 
 extendBinding :: Env Value -> Pattern -> Value -> Env Value

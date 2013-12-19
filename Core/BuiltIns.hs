@@ -1,6 +1,6 @@
 module BuiltIns where
     
-import Types
+import Syntax
 import Env(Symbol, emptyEnv, extendList, makeSymbol)
 
 closeBuiltIn g = ClosV emptyEnv $ BuiltInE g

@@ -1,7 +1,7 @@
 module Unify (unify, substTypes) where
 
 import Utils
-import Types
+import Syntax
 import Env
 import TypeCheckTypes
 

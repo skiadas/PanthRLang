@@ -1,6 +1,6 @@
 module ConstraintGen where
 
-import Types
+import Syntax
 import MyState
 import Env
 import TypeCheckTypes

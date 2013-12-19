@@ -2,7 +2,7 @@
 
 module Interp where
     
-import Types
+import Syntax
 import Env
 import Store
 import Parse(parseExpr)

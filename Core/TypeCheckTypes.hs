@@ -1,7 +1,7 @@
 module TypeCheckTypes where
 
 import Utils
-import Types
+import Syntax
 import Env
 import MyState
 
