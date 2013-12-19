@@ -1,8 +1,9 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 module Parse where
     
-import Types
-import Control.Applicative((<*))
+import Syntax
+import MaybeE(ok, err)
+import Control.Applicative((<*), (<*>))
 import Text.Parsec
 import Text.Parsec.String
 import Text.Parsec.Expr
@@ -44,30 +45,30 @@ sign = (char '-' >> return negate)
     <|> (char '+' >> return id)
     <|> return id
 
-exprparser :: Parser TExpr
+-- exprparser :: Parser MExpr
 exprparser = buildExpressionParser table fielded_term <?> "expression"
 table = [
-          [Prefix (m_reservedOp "-"   >> return makeNegate),
+          [Prefix (m_reservedOp "-"   >> sourcefy UndefT ( return makeNegate)),
            Prefix (m_reservedOp "+"   >> return id)]
-        , [Infix  (m_reservedOp "/"   >> return (makeArithmOp  OpDivide)) AssocLeft
-        ,  Infix  (m_reservedOp "*"   >> return (makeArithmOp  OpMult)) AssocLeft]
-        , [Infix  (m_reservedOp "-"   >> return (makeArithmOp  OpMinus)) AssocLeft
-        ,  Infix  (m_reservedOp "+"   >> return (makeArithmOp  OpPlus)) AssocLeft]
-        , [Infix  (m_reservedOp ">="  >> return (makeCompareOp OpGeq)) AssocNone
-        ,  Infix  (m_reservedOp "<="  >> return (makeCompareOp OpLeq)) AssocNone
-        ,  Infix  (m_reservedOp ">"   >> return (makeCompareOp OpGreater)) AssocNone
-        ,  Infix  (m_reservedOp "<"   >> return (makeCompareOp OpLess)) AssocNone
-        ,  Infix  (m_reservedOp "=="  >> return (makeCompareOp OpEq)) AssocNone
-        ,  Infix  (m_reservedOp "!="  >> return (makeCompareOp OpNeq)) AssocNone]
-        , [Prefix (m_reservedOp "not" >> return makeNot)]
-        , [Infix  (m_reservedOp "and" >> return (makeLogicalOp OpAnd)) AssocLeft
-        ,  Infix  (m_reservedOp "or"  >> return (makeLogicalOp OpOr)) AssocLeft]
+        , [Infix  (m_reservedOp "/"   >> sourcefy UndefT (return(makeArithmOp  OpDivide))) AssocLeft
+        ,  Infix  (m_reservedOp "*"   >> sourcefy UndefT (return(makeArithmOp  OpMult))) AssocLeft]
+        , [Infix  (m_reservedOp "-"   >> sourcefy UndefT (return(makeArithmOp  OpMinus))) AssocLeft
+        ,  Infix  (m_reservedOp "+"   >> sourcefy UndefT (return(makeArithmOp  OpPlus))) AssocLeft]
+        , [Infix  (m_reservedOp ">="  >> sourcefy UndefT (return(makeCompareOp OpGeq))) AssocNone
+        ,  Infix  (m_reservedOp "<="  >> sourcefy UndefT (return(makeCompareOp OpLeq))) AssocNone
+        ,  Infix  (m_reservedOp ">"   >> sourcefy UndefT (return(makeCompareOp OpGreater))) AssocNone
+        ,  Infix  (m_reservedOp "<"   >> sourcefy UndefT (return(makeCompareOp OpLess))) AssocNone
+        ,  Infix  (m_reservedOp "=="  >> sourcefy UndefT (return(makeCompareOp OpEq))) AssocNone
+        ,  Infix  (m_reservedOp "!="  >> sourcefy UndefT (return(makeCompareOp OpNeq))) AssocNone]
+        , [Prefix (m_reservedOp "not" >> sourcefy UndefT (return makeNot))]
+        , [Infix  (m_reservedOp "and" >> sourcefy UndefT (return(makeLogicalOp OpAnd))) AssocLeft
+        ,  Infix  (m_reservedOp "or"  >> sourcefy UndefT (return(makeLogicalOp OpOr))) AssocLeft]
         ]
 
 fielded_term = do {
     obj <- term;
     fielded <- many m_field;
-    return $ makeFieldAccess obj fielded;
+    return (makeFieldAccess obj fielded);
 }
 term = (try $ m_parens (do {
         firstT <- exprparser;
@@ -79,27 +80,32 @@ term = (try $ m_parens (do {
     <|> m_bool
     <|> m_ifthenelse
     <|> m_lambda
-    <|> fmap makeVar m_identifier
+    <|> sourcefy UndefT (fmap makeVar m_identifier)
     <|> m_vector
     <|> m_record
     <|> m_tuple
     <|> m_let
 
 m_number = try (do {
-        v <- m_float; return (makeDouble v)
+        p <- getPosition;
+        v <- m_float;
+        return $ makeDouble (Info (Just p, DblT)) v;
     })
     <|> do {
-        v <- m_integer; return (makeInt v)
+        p <- getPosition;
+        v <- m_integer;
+        return $ makeInt (Info (Just p, IntT)) v;
     }
 
-m_bool =  (m_reserved "true"  >> return (makeBool True ))
-      <|> (m_reserved "false" >> return (makeBool False))
+m_bool =  (m_reserved "true"  >> (sourcefy BoolT $ return makeBool) <*> return True)
+      <|> (m_reserved "false" >> (sourcefy BoolT $ return makeBool) <*> return False)
 
 m_ifthenelse = do {
+    p <- getPosition;
     m_reserved "if"; e_if <- exprparser;
     m_reserved "then"; e_then <- exprparser;
     m_reserved "else"; e_else <- exprparser;
-    return (makeIf e_if e_then e_else)
+    return $ makeIf (Info (Just p, UndefT)) e_if e_then e_else;
 }
 
 m_lambda = do {
@@ -110,39 +116,41 @@ m_lambda = do {
     return $ makeLambda ids body;
 }
 
-m_vector = m_brackets $ fmap makeVector (m_commaSep exprparser)
+m_vector = m_brackets $ (sourcefy UndefT $ return makeVector) <*> (m_commaSep exprparser)
 m_field = m_dot >> m_identifier
-m_record = m_braces $ fmap makeRecord $ m_commaSep m_fieldterm
-m_tuple = try $ m_parens $ fmap makeTuple $ m_commaSep1 exprparser
+m_record = m_braces $ (sourcefy UndefT $ return makeRecord) <*> (m_commaSep m_fieldterm)
+m_tuple = try $ m_parens $ (sourcefy UndefT $ return makeTuple) <*> (m_commaSep1 exprparser)
 m_fieldterm = do {
     s <- m_identifier;
     m_colon;
     v <- exprparser;
-    return (s, v);
+    return(s, v);
 }
 m_let = do {
     m_reserved "let";
     bindings <- many1 let_pair;
     m_reserved "in";
     expr <- exprparser;
-    return $ makeLet bindings expr;
+    return $ makeLet bindings expr
 }
 let_pair = do {
     p <- patternparser;
     m_reservedOp "=";
     val <- exprparser;
-    return (p, val);
+    return(p, val);
 }
 patternparser = p_symbol <|> p_tuple <|> p_record <|> p_wildcard <?> "pattern"
-p_symbol = fmap makeVarPat $ m_identifier
-p_tuple = m_parens $ fmap makeTuplePat $ m_commaSep1 patternparser
-p_record = m_braces $ fmap makeRecPat $ m_commaSep1 p_field
+p_symbol = (sourcefy UndefT $ return makeVarPat) <*> m_identifier
+p_tuple = m_parens $ (sourcefy UndefT $ return makeTuplePat) <*> (m_commaSep1 patternparser)
+p_record = m_braces $ (sourcefy UndefT $ return makeRecPat) <*> (m_commaSep1 p_field)
 p_field = do {
     s <- m_identifier;
     m_reservedOp ":";
     p <- patternparser;
-    return (s, p);
+    return(s, p);
 }
-p_wildcard = m_reservedOp "_" >> return WildP
+p_wildcard = m_reservedOp "_" >> (sourcefy UndefT $ return WildP)
 
 parseExpr = parse exprparser ""
+
+sourcefy ty f = f <*> (fmap (\p -> Info (Just p, ty)) getPosition) 
