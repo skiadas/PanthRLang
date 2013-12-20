@@ -8,38 +8,47 @@ import MyState
 import TypeCheckTypes
 import ConstraintGen
 import Unify
+import MaybeE
 
-typeCheck str = case parseExpr str of
-        Left e -> error ("Error during parsing: " ++ show e)
-        Right v -> (e2, ctx, ctx2) where
-                        (e, TypingSt ctx con _) = typeCheckExpr v
-                        ctx2 = unify con
-                        e2 = fixTExpr ctx2 e
-        -- Right v -> (t2, con2) where
-        --     (t, con) = typeCheckExpr v
-        --     con2 = resolveTypes . reverse $ unify con
-        --     t2 = fixTypes t con2
-
-typeCheckExpr expr = runState (genConstraints expr) $ emptyState
+typeCheck :: String -> (SrcExpr, TypingState)
+typeCheck = fixTypes . (applySnd unifyState) . typeCheckExpr . parseExpr
 
 
-fixTExpr :: Context -> TExpr -> TExpr
-fixTExpr (Cntx env) (Typed ty e) = Typed ty2 e2 where
-                ty2 = substTypes env ty
-                e2  = substInExpr (Cntx env) e
+unifyState :: TypingState -> TypingState
+unifyState (TypingSt ctx cons gen) = TypingSt ctx2 [] gen
+                        where ctx2 = unify cons
 
-substInExpr :: Context -> Expr -> Expr
-substInExpr (Cntx env) e = let fixTE = fixTExpr (Cntx env) in case e of
-        (VectorE lst) -> VectorE (map fixTE lst)
-        (RecE lst)    -> RecE (map (applySnd fixTE) lst)
-        (ArithmE  op te1 te2) -> ArithmE  op (fixTE te1) (fixTE te2)
-        (LogicalE op te1 te2) -> LogicalE op (fixTE te1) (fixTE te2)
-        (CompareE op te1 te2) -> CompareE op (fixTE te1) (fixTE te2)
-        (NegateE te) -> NegateE (fixTE te)
-        (NotE te)    -> NotE (fixTE te)
-        (IfE te1 te2 te3)     -> IfE (fixTE te1) (fixTE te2) (fixTE te3)
-        (FunE (LambdaE s te)) -> FunE (LambdaE s (fixTE te))
-        (CallE te1 te2)       -> CallE (fixTE te1) (fixTE te2)
-        (FieldE te s)         -> FieldE (fixTE te) s
-        (LetE (p, te1) te2)   -> (LetE (p, (fixTE te1)) (fixTE te2))
+
+typeCheckExpr :: SrcExpr -> (SrcExpr, TypingState)
+typeCheckExpr expr = runState (genConstraintsS expr) $ emptyState
+
+-- Uses the context information to substitute any type variables in the expr
+
+fixTypes :: (SrcExpr, TypingState) -> (SrcExpr, TypingState)
+fixTypes (se, st) = (pure (substInExpr (getContext st)) <*> se, st)
+
+fixType :: Context -> Type -> Type
+fixType (Cntx env) = substTypes env
+
+fixInfo :: Context -> Info -> Info
+fixInfo ctx inf = setTyp (fixType ctx (typ inf)) inf
+
+substInExpr :: Context -> Expr Info -> Expr Info
+substInExpr ctx e =
+    let inf2 = fixInfo ctx (info e)
+        fixExpr = substInExpr ctx
+    in case e of
+        (VectorE _ lst)         -> VectorE  inf2 (map fixExpr lst)
+        (RecE    _ lst)         -> RecE     inf2 (map (applySnd fixExpr) lst)
+        (ArithmE  _ op te1 te2) -> ArithmE  inf2 op (fixExpr te1) (fixExpr te2)
+        (LogicalE _ op te1 te2) -> LogicalE inf2 op (fixExpr te1) (fixExpr te2)
+        (CompareE _ op te1 te2) -> CompareE inf2 op (fixExpr te1) (fixExpr te2)
+        (NegateE _ te)          -> NegateE  inf2 (fixExpr te)
+        (NotE    _ te)          -> NotE     inf2 (fixExpr te)
+        (VarE    _ s )          -> VarE     inf2 s
+        (IfE _ te1 te2 te3)     -> IfE      inf2 (fixExpr te1) (fixExpr te2) (fixExpr te3)
+        (FunE (LambdaE _ s te)) -> FunE (LambdaE inf2 s (fixExpr te))
+        (CallE _ te1 te2)       -> CallE    inf2 (fixExpr te1) (fixExpr te2)
+        (FieldE _ te s)         -> FieldE   inf2 (fixExpr te) s
+        (LetE _ (p, te1) te2)   -> LetE     inf2 (p, (fixExpr te1)) (fixExpr te2)
         otherwise -> e

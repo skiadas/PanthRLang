@@ -26,27 +26,27 @@ data Expr a = IntE a Integer | DblE a Double | BoolE a Bool | StrE a String
             | RecE a [(Symbol, (Expr a))] -- Records. Order does not matter. Doubling as tuples
             | FieldE a (Expr a) Symbol    -- Record field access.
             | LetE a (Pattern a, (Expr a)) (Expr a)   -- Acts as let*
-          -- deriving (Show)
+          deriving (Show)
 
-instance Show (Expr a) where
-    show (IntE _ e)            = show e
-    show (DblE _ e)            = show e
-    show (BoolE _ b)           = show b
-    show (StrE _ s)            = show s
-    show (VectorE _ lst)       = show lst
-    show (ArithmE _ op e1 e2)  = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
-    show (LogicalE _ op e1 e2) = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
-    show (CompareE _ op e1 e2) = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
-    show (NegateE _ e1)        = "(-" ++ show e1 ++ ")"
-    show (NotE _ e1)           = "(not " ++ show e1 ++ ")"
-    show (IfE _ e1 e2 e3)      = "if " ++ show e1 ++ " then " ++ show e2
-                                                ++ " else " ++ show e3
-    show (FunE f)              = show f
-    show (VarE a s)            = show s
-    show (CallE _ e1 e2)       = "(" ++ show e1 ++ " " ++ show e2 ++ ")"
-    show (RecE _ lst)          = "rec"   -- FIXME
-    show (FieldE _ e s)        = "field"  -- FIXME
-    show (LetE _ (p, e1) e2)   = "let " ++ show p ++ "=" ++ show e1 ++ " in " ++ show e2
+-- instance Show (Expr a) where
+--     show (IntE _ e)            = show e
+--     show (DblE _ e)            = show e
+--     show (BoolE _ b)           = show b
+--     show (StrE _ s)            = show s
+--     show (VectorE _ lst)       = show lst
+--     show (ArithmE _ op e1 e2)  = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
+--     show (LogicalE _ op e1 e2) = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
+--     show (CompareE _ op e1 e2) = "(" ++ show e1 ++ show op ++ show e2 ++ ")"
+--     show (NegateE _ e1)        = "(-" ++ show e1 ++ ")"
+--     show (NotE _ e1)           = "(not " ++ show e1 ++ ")"
+--     show (IfE _ e1 e2 e3)      = "if " ++ show e1 ++ " then " ++ show e2
+--                                                 ++ " else " ++ show e3
+--     show (FunE f)              = show f
+--     show (VarE a s)            = show s
+--     show (CallE _ e1 e2)       = "(" ++ show e1 ++ " " ++ show e2 ++ ")"
+--     show (RecE _ lst)          = "rec"   -- FIXME
+--     show (FieldE _ e s)        = "field"  -- FIXME
+--     show (LetE _ (p, e1) e2)   = "let " ++ show p ++ "=" ++ show e1 ++ " in " ++ show e2
 
 instance Functor Expr where
     fmap f ex = case ex of
@@ -159,7 +159,7 @@ makeFieldAccess = foldl (\e s -> FieldE (info e) e (makeSymbol s))
 
 -- "makeCall f argsList"  creates a curried application of f on each arg in order
 makeCall :: Expr a -> [Expr a] -> Expr a
-makeCall = foldl (\f arg -> CallE (info arg) f arg)
+makeCall = foldl (\f arg -> CallE (info f) f arg)
 -- 
 makeLet :: [(Pattern a, Expr a)] -> Expr a -> Expr a
 makeLet bs ex = foldr (\b e -> LetE (info ex) b e) ex bs

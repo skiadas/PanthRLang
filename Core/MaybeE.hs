@@ -3,7 +3,7 @@ module MaybeE
     ( module Control.Applicative
     , module Text.Parsec.Pos
     , ErrorMes
-    , MaybeE
+    , MaybeE(..)
     , ok
     , err
     ) where
@@ -11,9 +11,9 @@ module MaybeE
 import Control.Applicative
 import Text.Parsec.Pos
 
-newtype ErrorMes = Err (Maybe SourcePos, [String])
+newtype ErrorMes = Err (Maybe SourcePos, [String]) deriving (Show)
 
-data MaybeE a = Error ErrorMes | Ok a
+data MaybeE a = Error ErrorMes | Ok a deriving (Show)
 
 instance Functor MaybeE where
     fmap f (Ok a)     = Ok (f a)

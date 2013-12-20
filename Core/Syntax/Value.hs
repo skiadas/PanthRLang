@@ -13,6 +13,7 @@ data Value e = IntV Integer | DblV Double | BoolV Bool | StrV String
              | VectorV [Value e]
              | ClosV (Env (Value e)) (Function e (Value e) Info)
              | RecV [(Symbol, (Value e))]
-             deriving (Show)
+             -- deriving (Show)
 
-
+instance Show (Value a) where
+    show _ = "val"

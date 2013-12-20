@@ -43,10 +43,3 @@ applyOp OpLeq     = (<=)
 applyOp OpEq      = (==)
 applyOp OpNeq     = (/=)
 
--- Checks if its first argument contains a symbol
-contains :: Symbol -> Type -> Bool
-contains s (VarT s2) = s2 == s
-contains s (RecT lst) = any ((contains s) . snd) lst
-contains s (VectorT t) = contains s t
-contains s (FunT e1 e2) = (contains s e1) && (contains s e2)
-contains s _ = False

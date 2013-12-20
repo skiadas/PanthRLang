@@ -5,9 +5,12 @@ import Syntax.Symbol
 import Syntax.Info
 
 data Function e v a = LambdaE a Symbol (e a) | BuiltInE a (v -> v)
+     deriving (Show)
 
-instance Show (Function e v a) where
-    show _ = "fun"
+instance Show (a -> b) where
+    show _ = "builtin"
+-- instance Show (Function e v a) where
+--     show _ = "fun"
 
 instance Functor e => Functor (Function e v) where
     fmap f (LambdaE a s ex) = LambdaE (f a) s (fmap f ex)
